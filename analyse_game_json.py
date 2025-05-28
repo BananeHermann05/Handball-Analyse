@@ -42,17 +42,6 @@ logger.info(f"analyse_game_json - DB_USER_PG: '{DB_USER_PG}'") #
 logger.info(f"analyse_game_json - DB_HOST_PG: '{DB_HOST_PG}'") #
 logger.info(f"analyse_game_json - DB_PORT_PG: '{DB_PORT_PG}'") #
 
-
-# --- Constants ---
-BASE_URL: str = "https://www.handball.net/a/sportdata/1/games/handball4all.westfalen.{id}/combined?" #
-# ... (Rest der Konstanten und Hilfsfunktionen wie zuvor) ...
-# Die Funktion get_db_connection() verwendet bereits die global definierten Credentials.
-
-# ... (Alle anderen Funktionen wie parse_score, get_saison_from_timestamp, extract_data_from_game_json,
-#      batch_upsert_entities, batch_upsert_spiele, batch_insert_data, main_batched bleiben strukturell gleich,
-#      da sie get_db_connection() aufrufen, das jetzt die Credentials korrekt bezieht) ...
-
-
 # --- Constants ---
 BASE_URL: str = "https://www.handball.net/a/sportdata/1/games/handball4all.westfalen.{id}/combined?" #
 REQUEST_HEADERS: Dict[str, str] = { #
@@ -516,7 +505,7 @@ def main_batched(game_ids_to_process: List[str], batch_size: int = DEFAULT_BATCH
     return {"success": processed_successfully_count, "error": error_count, "total": total_to_process}
 
 
-i# Am Ende der Datei zur Sicherheit:
+# Am Ende der Datei zur Sicherheit:
 if not all([DB_NAME_PG, DB_USER_PG, DB_HOST_PG]):
     logger.warning("Einige DB-Credentials sind für analyse_game_json nicht gesetzt. DB-Operationen könnten fehlschlagen.")
 else:
