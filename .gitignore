@@ -21,7 +21,7 @@ pip-wheel-metadata/
 # Lokale Konfigurationsdateien / Secrets
 .env
 database.env
-.streamlit/secrets.toml # Wenn du Secrets auch lokal so testen möchtest
+.streamlit/secrets.toml
 
 # macOS
 .DS_Store
