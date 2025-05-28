@@ -1,0 +1,1 @@
+SELECT COUNT(*) FROM "Spieler" WHERE "Ist_Offizieller"=0;
