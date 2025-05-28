@@ -1,3 +1,4 @@
+import streamlit as st # Hinzufügen für st.secrets
 import psycopg2
 import psycopg2.extras
 import pandas as pd
@@ -6,36 +7,34 @@ import os
 import sqlalchemy
 from sqlalchemy.engine.url import URL
 from typing import List, Dict, Any, Optional
+from dotenv import load_dotenv # Behalten für lokalen Fallback
 
 # --- Logging Configuration ---
 logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(levelname)s - [%(filename)s:%(lineno)d] - %(message)s')
 logger = logging.getLogger(__name__)
 
-# --- Lade Umgebungsvariablen ---
-try:
-    from dotenv import load_dotenv
-    env_paths_to_try = [
-        os.path.join(os.path.dirname(__file__), 'database.env'),
-        os.path.join(os.path.dirname(__file__), '.env'),
-        os.path.join(os.getcwd(), '.env')
-    ]
-    loaded_env_file = None
-    for path_to_try in env_paths_to_try:
-        if os.path.exists(path_to_try):
-            if load_dotenv(path_to_try, verbose=True):
-                loaded_env_file = path_to_try
-                logger.info(f"Umgebungsvariablen aus {loaded_env_file} geladen für db_queries_refactored.")
-                break
-    if not loaded_env_file:
-        logger.info("Keine .env oder database.env Datei gefunden. Umgebungsvariablen müssen anderweitig gesetzt sein.")
-except ImportError:
-    logger.info("python-dotenv nicht installiert. Umgebungsvariablen müssen manuell gesetzt werden.")
+# --- Lade .env für lokalen Fallback (python-dotenv) ---
+# Dies wird nur geladen, wenn st.secrets die Werte nicht bereitstellt und os.environ sie auch nicht hat.
+# Für lokale Entwicklung mit .env ist das praktisch. Im Deployment kommen sie von st.secrets oder Plattform-Env-Vars.
+env_paths_to_try = [
+    os.path.join(os.path.dirname(__file__), 'database.env'),
+    os.path.join(os.path.dirname(__file__), '.env'),
+    os.path.join(os.getcwd(), '.env')
+]
+loaded_env_file = None
+for path_to_try in env_paths_to_try:
+    if os.path.exists(path_to_try):
+        if load_dotenv(path_to_try, verbose=True):
+            loaded_env_file = path_to_try
+            logger.info(f"Lokale .env/.database.env aus {loaded_env_file} geladen für db_queries_refactored (Fallback).")
+            break
 
-DB_NAME_PG = os.environ.get("PG_DB_NAME")
-DB_USER_PG = os.environ.get("PG_DB_USER")
-DB_PASSWORD_PG = os.environ.get("PG_DB_PASSWORD")
-DB_HOST_PG = os.environ.get("PG_DB_HOST")
-DB_PORT_PG = os.environ.get("PG_DB_PORT", "5432")
+# --- Datenbank-Credentials laden (st.secrets primär, dann os.environ) ---
+DB_NAME_PG = st.secrets.get("PG_DB_NAME", os.environ.get("PG_DB_NAME"))
+DB_USER_PG = st.secrets.get("PG_DB_USER", os.environ.get("PG_DB_USER"))
+DB_PASSWORD_PG = st.secrets.get("PG_DB_PASSWORD", os.environ.get("PG_DB_PASSWORD"))
+DB_HOST_PG = st.secrets.get("PG_DB_HOST", os.environ.get("PG_DB_HOST"))
+DB_PORT_PG = st.secrets.get("PG_DB_PORT", os.environ.get("PG_DB_PORT", "5432"))
 
 # --- SQL Directory ---
 SQL_DIR = os.path.join(os.path.dirname(__file__), 'sql')
@@ -64,8 +63,9 @@ COL_TORE_GESAMT: str = "Tore_Gesamt"
 
 # --- DB Connection & SQL Loader ---
 def get_db_engine() -> Optional[sqlalchemy.engine.Engine]:
+    # Verwende die global geladenen Credentials
     if not all([DB_NAME_PG, DB_USER_PG, DB_PASSWORD_PG, DB_HOST_PG, DB_PORT_PG]):
-        logger.error("Unvollständige PostgreSQL-Verbindungsinformationen.")
+        logger.error("Unvollständige PostgreSQL-Verbindungsinformationen (get_db_engine).")
         return None
     try:
         db_url = URL.create(
@@ -79,8 +79,9 @@ def get_db_engine() -> Optional[sqlalchemy.engine.Engine]:
     return None
 
 def get_db_connection() -> Optional[psycopg2.extensions.connection]:
+    # Verwende die global geladenen Credentials
     if not all([DB_NAME_PG, DB_USER_PG, DB_PASSWORD_PG, DB_HOST_PG, DB_PORT_PG]):
-        logger.error("Unvollständige PostgreSQL-Verbindungsinformationen.")
+        logger.error("Unvollständige PostgreSQL-Verbindungsinformationen (get_db_connection).")
         return None
     try:
         conn = psycopg2.connect(
@@ -92,6 +93,10 @@ def get_db_connection() -> Optional[psycopg2.extensions.connection]:
     except Exception as e:
         logger.error(f"Fehler beim Herstellen der psycopg2-Verbindung: {e}", exc_info=True)
     return None
+
+# ... (Rest der db_queries_refactored.py Datei bleibt gleich: load_sql, execute_query und alle fetch_* Funktionen) ...
+# Die fetch_* Funktionen verwenden bereits get_db_engine oder get_db_connection,
+# die nun die Credentials über st.secrets / os.environ beziehen.
 
 def load_sql(filename: str) -> str:
     path = os.path.join(SQL_DIR, filename)
@@ -445,5 +450,12 @@ def fetch_basic_db_stats() -> Dict[str, int]:
 def fetch_club_overview() -> pd.DataFrame:
     query = load_sql("fetch_club_overview.sql")
     return execute_query(query)
+
+logger.info("db_queries_refactored.py module successfully loaded and all functions defined.")
+# Am Ende der Datei zur Sicherheit:
+if not all([DB_NAME_PG, DB_USER_PG, DB_HOST_PG]): # Passwort wird nicht geloggt
+    logger.warning("Einige DB-Credentials sind nicht gesetzt. DB-Operationen könnten fehlschlagen.")
+else:
+    logger.info("DB-Credentials für db_queries_refactored geladen (Host: %s, DB: %s, User: %s).", DB_HOST_PG, DB_NAME_PG, DB_USER_PG)
 
 logger.info("db_queries_refactored.py module successfully loaded and all functions defined.")

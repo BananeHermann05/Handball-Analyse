@@ -2,40 +2,38 @@ import psycopg2
 import os
 import logging
 from typing import Optional
+from dotenv import load_dotenv #
 
 # --- Logging Configuration ---
-logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(levelname)s - %(filename)s:%(lineno)d - %(message)s')
+logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(levelname)s - %(filename)s:%(lineno)d - %(message)s') #
 logger = logging.getLogger(__name__)
 
-# --- Lade Umgebungsvariablen ---
-try:
-    from dotenv import load_dotenv
-    dotenv_path_specific = os.path.join(os.path.dirname(__file__), 'database.env')
-    dotenv_path_default = os.path.join(os.getcwd(), '.env')
-    loaded_env_file = None
+# --- Lade Umgebungsvariablen (aus .env oder database.env) ---
+# Diese Methode wird beibehalten, da createDB meist lokal ausgeführt wird.
+dotenv_path_specific = os.path.join(os.path.dirname(__file__), 'database.env') #
+dotenv_path_default = os.path.join(os.getcwd(), '.env') #
+loaded_env_file = None
 
-    if os.path.exists(dotenv_path_specific):
-        if load_dotenv(dotenv_path_specific):
-            loaded_env_file = dotenv_path_specific
-    elif os.path.exists(dotenv_path_default):
-        if load_dotenv(dotenv_path_default):
-            loaded_env_file = dotenv_path_default
-    
-    if loaded_env_file:
-        logger.info(f"Umgebungsvariablen aus {loaded_env_file} geladen für createDB_postgresql.")
-    else:
-        logger.warning(f"Keine .env oder database.env Datei gefunden. Umgebungsvariablen müssen anderweitig gesetzt sein für createDB_postgresql.")
+if os.path.exists(dotenv_path_specific): #
+    if load_dotenv(dotenv_path_specific): #
+        loaded_env_file = dotenv_path_specific #
+elif os.path.exists(dotenv_path_default): #
+    if load_dotenv(dotenv_path_default): #
+        loaded_env_file = dotenv_path_default #
 
-except ImportError:
-    logger.info("python-dotenv nicht installiert. Umgebungsvariablen müssen manuell gesetzt werden für createDB_postgresql.")
+if loaded_env_file: #
+    logger.info(f"Umgebungsvariablen aus {loaded_env_file} geladen für createDB_postgresql.") #
+else:
+    logger.warning(f"Keine .env oder database.env Datei gefunden. Umgebungsvariablen müssen anderweitig gesetzt sein für createDB_postgresql.") #
 
 
 # --- Datenbank-Verbindungsdetails (aus Umgebungsvariablen laden) ---
-DB_NAME = os.environ.get("PG_DB_NAME")
-DB_USER = os.environ.get("PG_DB_USER")
-DB_PASSWORD = os.environ.get("PG_DB_PASSWORD")
-DB_HOST = os.environ.get("PG_DB_HOST")
-DB_PORT = os.environ.get("PG_DB_PORT", "5432")
+DB_NAME = os.environ.get("PG_DB_NAME") #
+DB_USER = os.environ.get("PG_DB_USER") #
+DB_PASSWORD = os.environ.get("PG_DB_PASSWORD") #
+DB_HOST = os.environ.get("PG_DB_HOST") #
+DB_PORT = os.environ.get("PG_DB_PORT", "5432") #
+
 
 SQL_SCHEMA_POSTGRESQL: str = """
 -- SQL-Anweisungen zur Erstellung der HandballAnalyseDB für PostgreSQL
@@ -132,7 +130,7 @@ def erstelle_postgres_datenbank_schema() -> None:
         logger.info("PG-Verbindung für Schemaerstellung geschlossen.")
 
 if __name__ == "__main__":
-    # Stelle sicher, dass die globalen Variablen korrekt gesetzt sind
+    # Stelle sicher, dass die Variablen korrekt geladen sind für direkte Ausführung
     DB_NAME = os.environ.get("PG_DB_NAME")
     DB_USER = os.environ.get("PG_DB_USER")
     DB_PASSWORD = os.environ.get("PG_DB_PASSWORD")
@@ -140,7 +138,7 @@ if __name__ == "__main__":
     DB_PORT = os.environ.get("PG_DB_PORT", "5432")
 
     if not all([DB_NAME, DB_USER, DB_PASSWORD, DB_HOST]):
-        print("FEHLER: Bitte setze die Umgebungsvariablen: PG_DB_NAME, PG_DB_USER, PG_DB_PASSWORD, PG_DB_HOST.")
+        print("FEHLER: Bitte setze die Umgebungsvariablen: PG_DB_NAME, PG_DB_USER, PG_DB_PASSWORD, PG_DB_HOST in deiner .env oder database.env Datei.")
     else:
         logger.info("Starte die Erstellung des PostgreSQL-Datenbankschemas...")
-        erstelle_postgres_datenbank_schema()
+        # erstelle_postgres_datenbank_schema() # Ausführen der Funktion

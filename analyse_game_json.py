@@ -1,3 +1,4 @@
+import streamlit as st # Hinzufügen für st.secrets
 import psycopg2
 import psycopg2.extras
 import requests
@@ -8,42 +9,49 @@ import logging
 from datetime import datetime
 from typing import List, Dict, Any, Tuple, Optional, Set
 import os
+from dotenv import load_dotenv # Behalten für lokalen Fallback
 
 # --- Logging Configuration ---
 logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(levelname)s - [%(filename)s:%(lineno)d] - %(message)s')
 logger = logging.getLogger(__name__)
 
-# --- Lade Umgebungsvariablen ---
-try:
-    from dotenv import load_dotenv
-    env_paths_to_try = [
-        os.path.join(os.path.dirname(__file__), 'database.env'),
-        os.path.join(os.path.dirname(__file__), '.env'),
-        os.path.join(os.getcwd(), '.env')
-    ]
-    loaded_env_file = None
-    for path_to_try in env_paths_to_try:
-        if os.path.exists(path_to_try):
-            if load_dotenv(path_to_try, verbose=True):
-                loaded_env_file = path_to_try
-                logger.info(f"Umgebungsvariablen aus {loaded_env_file} geladen für analyse_game_json.") #
-                break
-    if not loaded_env_file:
-        logger.info("Keine .env oder database.env Datei gefunden in analyse_game_json. Umgebungsvariablen müssen anderweitig (z.B. System-Umgebung) gesetzt sein.") #
-except ImportError:
-    logger.info("python-dotenv nicht installiert. Umgebungsvariablen müssen manuell oder über die Plattform gesetzt werden für analyse_game_json.") #
+# --- Lade .env für lokalen Fallback (python-dotenv) ---
+env_paths_to_try = [
+    os.path.join(os.path.dirname(__file__), 'database.env'),
+    os.path.join(os.path.dirname(__file__), '.env'),
+    os.path.join(os.getcwd(), '.env')
+]
+loaded_env_file = None
+for path_to_try in env_paths_to_try:
+    if os.path.exists(path_to_try):
+        if load_dotenv(path_to_try, verbose=True):
+            loaded_env_file = path_to_try
+            logger.info(f"Lokale .env/.database.env aus {loaded_env_file} geladen für analyse_game_json (Fallback).") #
+            break
 
-# --- Datenbank-Verbindungsdetails ---
-DB_NAME_PG = os.environ.get("PG_DB_NAME") #
-DB_USER_PG = os.environ.get("PG_DB_USER") #
-DB_PASSWORD_PG = os.environ.get("PG_DB_PASSWORD") #
-DB_HOST_PG = os.environ.get("PG_DB_HOST") #
-DB_PORT_PG = os.environ.get("PG_DB_PORT", "5432") #
+# --- Datenbank-Credentials laden (st.secrets primär, dann os.environ) ---
+DB_NAME_PG = st.secrets.get("PG_DB_NAME", os.environ.get("PG_DB_NAME"))
+DB_USER_PG = st.secrets.get("PG_DB_USER", os.environ.get("PG_DB_USER"))
+DB_PASSWORD_PG = st.secrets.get("PG_DB_PASSWORD", os.environ.get("PG_DB_PASSWORD"))
+DB_HOST_PG = st.secrets.get("PG_DB_HOST", os.environ.get("PG_DB_HOST"))
+DB_PORT_PG = st.secrets.get("PG_DB_PORT", os.environ.get("PG_DB_PORT", "5432"))
 
+# Logging der geladenen Variablen (ohne Passwort) für Debugging
 logger.info(f"analyse_game_json - DB_NAME_PG: '{DB_NAME_PG}'") #
 logger.info(f"analyse_game_json - DB_USER_PG: '{DB_USER_PG}'") #
 logger.info(f"analyse_game_json - DB_HOST_PG: '{DB_HOST_PG}'") #
 logger.info(f"analyse_game_json - DB_PORT_PG: '{DB_PORT_PG}'") #
+
+
+# --- Constants ---
+BASE_URL: str = "https://www.handball.net/a/sportdata/1/games/handball4all.westfalen.{id}/combined?" #
+# ... (Rest der Konstanten und Hilfsfunktionen wie zuvor) ...
+# Die Funktion get_db_connection() verwendet bereits die global definierten Credentials.
+
+# ... (Alle anderen Funktionen wie parse_score, get_saison_from_timestamp, extract_data_from_game_json,
+#      batch_upsert_entities, batch_upsert_spiele, batch_insert_data, main_batched bleiben strukturell gleich,
+#      da sie get_db_connection() aufrufen, das jetzt die Credentials korrekt bezieht) ...
+
 
 # --- Constants ---
 BASE_URL: str = "https://www.handball.net/a/sportdata/1/games/handball4all.westfalen.{id}/combined?" #
@@ -508,14 +516,30 @@ def main_batched(game_ids_to_process: List[str], batch_size: int = DEFAULT_BATCH
     return {"success": processed_successfully_count, "error": error_count, "total": total_to_process}
 
 
+i# Am Ende der Datei zur Sicherheit:
+if not all([DB_NAME_PG, DB_USER_PG, DB_HOST_PG]):
+    logger.warning("Einige DB-Credentials sind für analyse_game_json nicht gesetzt. DB-Operationen könnten fehlschlagen.")
+else:
+    logger.info("DB-Credentials für analyse_game_json geladen (Host: %s, DB: %s, User: %s).", DB_HOST_PG, DB_NAME_PG, DB_USER_PG)
+
 if __name__ == "__main__":
-    if not all([DB_NAME_PG, DB_USER_PG, DB_PASSWORD_PG, DB_HOST_PG]): #
-         print("FEHLER: Bitte setze die Umgebungsvariablen für PostgreSQL (PG_DB_NAME, PG_DB_USER, PG_DB_PASSWORD, PG_DB_HOST).") #
+    # Stelle sicher, dass Secrets geladen werden, wenn das Skript direkt ausgeführt wird
+    # (z.B. für lokale Tests ohne laufende Streamlit App)
+    # Dies ist ein Hack, da st.secrets normalerweise nur in einer laufenden Streamlit App funktioniert.
+    # Besser: Für lokale Tests, die nicht über Streamlit laufen, sich auf .env verlassen.
+    if not hasattr(st, 'secrets'): # Prüfen, ob st.secrets überhaupt existiert
+        logger.warning("st.secrets nicht verfügbar (wahrscheinlich kein Streamlit-Kontext). Verwende nur os.environ für direkte Skriptausführung.")
+        DB_NAME_PG = os.environ.get("PG_DB_NAME")
+        DB_USER_PG = os.environ.get("PG_DB_USER")
+        DB_PASSWORD_PG = os.environ.get("PG_DB_PASSWORD")
+        DB_HOST_PG = os.environ.get("PG_DB_HOST")
+        DB_PORT_PG = os.environ.get("PG_DB_PORT", "5432")
+
+
+    if not all([DB_NAME_PG, DB_USER_PG, DB_PASSWORD_PG, DB_HOST_PG]):
+         print("FEHLER: Bitte setze die Umgebungsvariablen für PostgreSQL (PG_DB_NAME, PG_DB_USER, PG_DB_PASSWORD, PG_DB_HOST) in .env oder als Systemvariablen für lokale Tests.")
     else:
-        # Beispielhafter Aufruf für Tests
-        # Ersetze dies mit den IDs, die du testen möchtest
-        beispiel_spiel_ids = ['7504381','7506331','7618266', '7618101', '7618111'] # Ein paar mehr für Batching
-        # beispiel_spiel_ids = ['7618266'] 
+        beispiel_spiel_ids = ['7504381','7506331','7618266', '7618101', '7618111']
         logger.info(f"Starte Testlauf mit {len(beispiel_spiel_ids)} Spielen...")
-        ergebnis = main_batched(beispiel_spiel_ids, batch_size=2) # Kleinere Batch-Größe für Test
+        ergebnis = main_batched(beispiel_spiel_ids, batch_size=2)
         logger.info(f"Testlauf Ergebnis: {ergebnis}")
