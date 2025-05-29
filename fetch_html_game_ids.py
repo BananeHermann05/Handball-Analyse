@@ -98,9 +98,9 @@ if __name__ == "__main__":
     # This import and call might be better handled by a main script orchestrating the process
     # For now, keeping it as per original structure if this script is run standalone.
     try:
-        from analyse_game_json import main as analyse_main # Renamed to avoid conflict
+        from analyse_game_json import main_batched as analyse_main # Renamed to avoid conflict
         if extracted_ids:
-             analyse_main(extracted_ids)
+             analyse_main(extracted_ids,20)
         else:
             logger.info("Keine IDs zum Analysieren an analyse_game_json.py übergeben.")
     except ImportError:

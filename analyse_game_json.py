@@ -348,25 +348,38 @@ def batch_upsert_spiele(cursor: psycopg2.extensions.cursor, games_initial_list: 
         logger.info(f"{len(result_data_tuples)} Spielergebnisse aktualisiert.")
 
 
-def batch_insert_data(cursor: psycopg2.extensions.cursor, data_list: List[Dict[str,Any]], table_name: str, column_names: List[str], unique_constraint_cols: Optional[List[str]] = None):
+# In analyse_game_json.py
+def batch_insert_data(cursor: psycopg2.extensions.cursor, 
+                      data_list: List[Dict[str,Any]], 
+                      table_name: str, 
+                      column_names: List[str], 
+                      unique_constraint_cols: Optional[List[str]] = None,
+                      do_nothing_on_conflict: bool = False): # NEUER Parameter
     if not data_list: return
-    
+
     tuples_to_insert = [tuple(item.get(col) for col in column_names) for item in data_list]
     cols_sql = ", ".join([f'"{col}"' for col in column_names])
-    
+
     if unique_constraint_cols:
         conflict_target = ", ".join([f'"{col}"' for col in unique_constraint_cols])
-        # Erstelle den DO UPDATE Teil dynamisch
-        update_assignments = [f'"{col}" = excluded."{col}"' for col in column_names if col not in unique_constraint_cols]
-        update_clause = ", ".join(update_assignments)
-        sql = f"""INSERT INTO {table_name} ({cols_sql}) VALUES %s
-                  ON CONFLICT ({conflict_target}) DO UPDATE SET {update_clause};"""
+        if do_nothing_on_conflict: # NEUE Logik für DO NOTHING
+            sql = f"""INSERT INTO {table_name} ({cols_sql}) VALUES %s
+                      ON CONFLICT ({conflict_target}) DO NOTHING;"""
+        else: # Bestehende DO UPDATE Logik
+            update_assignments = [f'"{col}" = excluded."{col}"' for col in column_names if col not in unique_constraint_cols]
+            update_clause = ", ".join(update_assignments)
+            sql = f"""INSERT INTO {table_name} ({cols_sql}) VALUES %s
+                      ON CONFLICT ({conflict_target}) DO UPDATE SET {update_clause};"""
     else: # Reiner Insert
         sql = f"""INSERT INTO {table_name} ({cols_sql}) VALUES %s;"""
 
-    psycopg2.extras.execute_values(cursor, sql, tuples_to_insert, page_size=len(tuples_to_insert))
-    logger.info(f"{len(tuples_to_insert)} Einträge in {table_name} verarbeitet.")
-
+    try:
+        psycopg2.extras.execute_values(cursor, sql, tuples_to_insert, page_size=len(tuples_to_insert))
+        logger.info(f"{len(tuples_to_insert)} Einträge in {table_name} verarbeitet (Strategie: {'DO NOTHING' if do_nothing_on_conflict and unique_constraint_cols else ('DO UPDATE' if unique_constraint_cols else 'REINER INSERT')}).")
+    except psycopg2.Error as e:
+        logger.error(f"DB-Fehler in batch_insert_data für Tabelle {table_name}: {e}")
+        logger.error(f"SQL: {cursor.mogrify(sql, [tuples_to_insert[0]] if tuples_to_insert else None)}") # Logge Beispiel-SQL
+        raise # Fehler weiterleiten, damit Transaktion zurückgerollt wird
 
 # --- Haupt-Batch-Verarbeitungsfunktion ---
 def main_batched(game_ids_to_process: List[str], batch_size: int = DEFAULT_BATCH_SIZE):
