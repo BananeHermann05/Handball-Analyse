@@ -475,8 +475,11 @@ def main_batched(game_ids_to_process: List[str], batch_size: int = DEFAULT_BATCH
                         logger.info(f"Lösche alte Ereignisse für {len(game_ids_in_current_batch)} Spiele im Batch...")
                         cursor.execute(f"DELETE FROM {TABLE_EREIGNISSE} WHERE \"Spiel_ID\" IN ({placeholders})", tuple(game_ids_in_current_batch))
                     
-                    batch_insert_data(cursor, kader_stats_batch, TABLE_KADER_STATS, KADER_STATS_COLS)
-                    batch_insert_data(cursor, events_batch, TABLE_EREIGNISSE, EVENT_COLS) 
+                    batch_insert_data(cursor, kader_stats_batch, TABLE_KADER_STATS, KADER_STATS_COLS, 
+                    unique_constraint_cols=["Spiel_ID", "Spieler_ID"], do_nothing_on_conflict=True)
+
+                    batch_insert_data(cursor, events_batch, TABLE_EREIGNISSE, EVENT_COLS, 
+                    unique_constraint_cols=["Spiel_ID", "H4A_Ereignis_ID"], do_nothing_on_conflict=True)
 
                     conn.commit() # Commit nach erfolgreichem Batch
                     processed_successfully_count += len(game_ids_in_current_batch)
