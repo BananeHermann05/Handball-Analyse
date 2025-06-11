@@ -54,14 +54,11 @@ CREATE TABLE IF NOT EXISTS "Spieler" (
 CREATE TABLE IF NOT EXISTS "Hallen" (
     "Hallen_ID" TEXT PRIMARY KEY, "Name" TEXT NOT NULL, "Stadt" TEXT, "Hallen_Nummer" TEXT
 );
--- HIER DIE NEUE TABELLE EINFÜGEN
 CREATE TABLE IF NOT EXISTS "Vereine" (
     "Verein_ID" SERIAL PRIMARY KEY, -- Eine einfache, fortlaufende ID
     "Name" TEXT NOT NULL UNIQUE,     -- Der offizielle, aggregierte Name des Vereins
     "Logo_URL" TEXT -- Platzhalter für ein Vereinslogo
 );
--- Die bestehende Teams-Tabelle anpassen, um die Vereins-ID zu speichern
--- Wir fügen die Spalte hinzu, wenn sie nicht existiert.
 DO $$
 BEGIN
     IF NOT EXISTS (SELECT FROM pg_attribute WHERE attrelid = '"Teams"'::regclass AND attname = 'Verein_ID') THEN
