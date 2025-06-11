@@ -54,17 +54,6 @@ CREATE TABLE IF NOT EXISTS "Spieler" (
 CREATE TABLE IF NOT EXISTS "Hallen" (
     "Hallen_ID" TEXT PRIMARY KEY, "Name" TEXT NOT NULL, "Stadt" TEXT, "Hallen_Nummer" TEXT
 );
-CREATE TABLE IF NOT EXISTS "Vereine" (
-    "Verein_ID" SERIAL PRIMARY KEY, -- Eine einfache, fortlaufende ID
-    "Name" TEXT NOT NULL UNIQUE,     -- Der offizielle, aggregierte Name des Vereins
-    "Logo_URL" TEXT -- Platzhalter für ein Vereinslogo
-);
-DO $$
-BEGIN
-    IF NOT EXISTS (SELECT FROM pg_attribute WHERE attrelid = '"Teams"'::regclass AND attname = 'Verein_ID') THEN
-        ALTER TABLE "Teams" ADD COLUMN "Verein_ID" INTEGER REFERENCES "Vereine"("Verein_ID") ON DELETE SET NULL;
-    END IF;
-END $$;
 CREATE TABLE IF NOT EXISTS "Spiele" (
     "Spiel_ID" TEXT PRIMARY KEY,
     "Liga_ID" TEXT NOT NULL REFERENCES "Ligen"("Liga_ID") ON DELETE CASCADE,
