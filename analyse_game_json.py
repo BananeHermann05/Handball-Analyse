@@ -10,6 +10,7 @@ from datetime import datetime
 from typing import List, Dict, Any, Tuple, Optional, Set
 import os
 from dotenv import load_dotenv # Behalten für lokalen Fallback
+from utils.verein_logik import assign_club_to_team # NEUER IMPORT
 
 # --- Logging Configuration ---
 logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(levelname)s - [%(filename)s:%(lineno)d] - %(message)s')
@@ -460,6 +461,13 @@ def main_batched(game_ids_to_process: List[str], batch_size: int = DEFAULT_BATCH
                     batch_upsert_entities(cursor, teams_batch, TABLE_TEAMS, "Team_ID", TEAM_COLS)
                     batch_upsert_entities(cursor, halls_batch, TABLE_HALLEN, "Hallen_ID", HALL_COLS)
                     batch_upsert_entities(cursor, players_batch, TABLE_SPIELER, "Spieler_ID", PLAYER_COLS)
+
+                    logger.info("Starte Vereins-Zuordnung für die Teams im aktuellen Batch...")
+                    for team_tuple in teams_batch:
+                        team_id = team_tuple[0]
+                        team_name = team_tuple[1]
+                        assign_club_to_team(cursor, team_id, team_name)
+                    logger.info("Vereins-Zuordnung für den Batch abgeschlossen.")
 
                     # 2. Spiele (upsert initial, dann update results)
                     batch_upsert_spiele(cursor, games_initial_batch, games_results_batch)
