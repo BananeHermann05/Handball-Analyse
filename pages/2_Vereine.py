@@ -206,65 +206,65 @@ def show_team_analysis_view():
 
 def show_clubs_list_view():
     """Zeigt die Such- und Übersichtsseite für Vereine."""
-    st.header("🏢 Vereinsübersicht") #
-    club_overview_df = get_club_overview_cached() #
-    if club_overview_df.empty: #
-        st.warning("Keine Vereinsdaten zum Gruppieren gefunden. Bitte Daten importieren.") #
+    st.header("🏢 Vereinsübersicht")
+    club_overview_df = get_club_overview_cached()
+    if club_overview_df.empty:
+        st.warning("Keine Vereinsdaten zum Gruppieren gefunden. Bitte Daten importieren.")
         return
 
-    search_term = st.text_input("Vereinsnamen suchen:", value=st.session_state.club_search_term, key="club_search_input_page_vereine") # Eindeutiger Key #
-    st.session_state.club_search_term = search_term 
+    search_term = st.text_input("Vereinsnamen suchen:", value=st.session_state.club_search_term, key="club_search_input_page_vereine")
+    st.session_state.club_search_term = search_term
 
     if st.session_state.club_search_term:
-        # .unique() gibt ein NumPy Array zurück, das .size hat
-        filtered_clubs_data = club_overview_df[
+        unique_club_names = club_overview_df[
             club_overview_df['Vereinsname_Aggregiert'].str.contains(st.session_state.club_search_term, case=False, na=False)
         ]['Vereinsname_Aggregiert'].unique()
     else:
-        # sorted(unique()) gibt eine Liste zurück
-        filtered_clubs_data = sorted(club_overview_df['Vereinsname_Aggregiert'].dropna().unique())
-        st.caption(f"Zeige alle {len(filtered_clubs_data)} erkannten Vereine.")
+        unique_club_names = sorted(club_overview_df['Vereinsname_Aggregiert'].dropna().unique())
     
-    # KORRIGIERTE Fehlerbehandlung:
-    # Prüfe, ob gesucht wurde UND die Ergebnisliste (egal ob Array oder Liste) leer ist
-    if st.session_state.club_search_term and len(filtered_clubs_data) == 0: #
-        st.info(f"Kein Verein passend zu '{st.session_state.club_search_term}' gefunden.") #
-        return
-    
-    # Prüfe, ob NICHT gesucht wurde UND die Gesamtliste (vor der Suche) leer wäre
-    # Dies ist relevant, falls club_overview_df initial leer ist und keine Suche stattfindet.
-    if not st.session_state.club_search_term and len(filtered_clubs_data) == 0 and club_overview_df.empty:
-        st.info("Keine Vereine in der Datenbank gefunden.")
+    if len(unique_club_names) == 0:
+        st.info(f"Kein Verein passend zu '{st.session_state.club_search_term}' gefunden.")
         return
 
-    for club_name in filtered_clubs_data:
-        if not isinstance(club_name, str): # Sicherstellen, dass club_name ein String ist
-            continue
-        with st.expander(f"{club_name}", expanded=(st.session_state.selected_club_aggregated_name == club_name)): #
-            teams_of_club_df = club_overview_df[club_overview_df['Vereinsname_Aggregiert'] == club_name] #
-            if not teams_of_club_df.empty: #
-                for altersgruppe, teams_in_agegroup in teams_of_club_df.groupby(db_queries.COL_ALTERSGRUPPE, dropna=False): #
-                    altersgruppe_display = altersgruppe if pd.notna(altersgruppe) else 'Unbekannte Altersgruppe' #
-                    st.markdown(f"**{altersgruppe_display}**") #
-                    for index, team_row in teams_in_agegroup.sort_values(by="Team_Name").iterrows(): #
-                        team_id = team_row[db_queries.COL_TEAM_ID] #
-                        team_name_display = team_row["Team_Name"] #
-                        liga_name_display = team_row.get("Liga_Name", "N/A") #
-                        saison_display = team_row.get(db_queries.COL_SAISON, "N/A") #
-                        
-                        button_label = f"{team_name_display} ({liga_name_display} - {saison_display})" #
-                        key_suffix = str(team_row.get(db_queries.COL_LIGA_ID, 'noliga')).replace('-', '_') # Eindeutigkeit verbessern
-                        if st.button(button_label, key=f"club_team_btn_{team_id}_{index}_{key_suffix}", use_container_width=True): #
-                            st.session_state.selected_team_id = team_id #
-                            st.session_state.selected_team_name = team_name_display #
-                            st.session_state.selected_league_id = team_row.get(db_queries.COL_LIGA_ID)  #
-                            st.session_state.selected_saison_for_league = saison_display if saison_display != "N/A" else None #
-                            st.session_state.selected_base_league_name = get_base_league_name_from_display(liga_name_display) if liga_name_display != "N/A" else None #
-                            st.session_state.selected_league_name_display = liga_name_display if liga_name_display != "N/A" else None #
+    st.caption(f"Zeige {len(unique_club_names)} gefundene Vereine.")
+
+    for club_name in unique_club_names:
+        with st.expander(f"{club_name}", expanded=(st.session_state.selected_club_aggregated_name == club_name)):
+            teams_of_club_df = club_overview_df[club_overview_df['Vereinsname_Aggregiert'] == club_name].copy()
+            
+            # Wende die Übersetzung auf jede Zeile an, um danach gruppieren zu können
+            teams_of_club_df['Altersgruppe_Display'] = teams_of_club_df.apply(
+                lambda row: translate_age_group(row.get('Liga_Name'), row.get(db_queries.COL_ALTERSGRUPPE)),
+                axis=1
+            )
+            
+            # Gruppiere nach der neuen, übersetzten Altersgruppe
+            for age_group_display, teams_in_agegroup in teams_of_club_df.groupby('Altersgruppe_Display'):
+                st.markdown(f"**{age_group_display}**")
+                
+                # Sortiere die Teams innerhalb der Altersgruppe
+                for index, team_row in teams_in_agegroup.sort_values(by="Team_Name").iterrows():
+                    team_id = team_row[db_queries.COL_TEAM_ID]
+                    team_name_display = team_row["Team_Name"]
+                    liga_name_display = team_row.get("Liga_Name", "Keiner Liga zugeordnet")
+                    saison_display = team_row.get(db_queries.COL_SAISON, "N/A")
+                    
+                    # Strukturiertes Layout für jede Mannschaft
+                    col1, col2, col3 = st.columns([2, 3, 1])
+                    with col1:
+                        st.markdown(f"_{team_name_display}_")
+                    with col2:
+                        st.caption(f"{liga_name_display} ({saison_display})")
+                    with col3:
+                        if st.button("Analyse", key=f"club_team_btn_{team_id}_{index}", use_container_width=True):
+                            st.session_state.selected_team_id = team_id
+                            st.session_state.selected_team_name = team_name_display
+                            st.session_state.selected_league_id = team_row.get(db_queries.COL_LIGA_ID)
+                            st.session_state.selected_saison_for_league = saison_display if saison_display != "N/A" else None
+                            st.session_state.selected_base_league_name = get_base_league_name_from_display(liga_name_display)
+                            st.session_state.selected_league_name_display = liga_name_display if liga_name_display != "N/A" else None
                             st.session_state.selected_club_aggregated_name = club_name 
-                            st.rerun() 
-            else: #
-                st.info(f"Keine Teams für Verein '{club_name}' gefunden (sollte nicht passieren).") #
+                            st.rerun()
 
 # --- Main Logic ---
 if st.session_state.get('selected_team_id'):
