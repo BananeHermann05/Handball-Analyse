@@ -11,7 +11,6 @@ from utils.cached_queries import (
 )
 from utils.ui import display_dataframe_with_title
 import db_queries_refactored as db_queries
-from utils.ui import translate_age_group
 
 # --- Logging & Init ---
 logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(levelname)s - [%(filename)s:%(lineno)d] - %(message)s')
@@ -266,7 +265,7 @@ def show_clubs_list_view():
                             st.rerun() 
             else: #
                 st.info(f"Keine Teams für Verein '{club_name}' gefunden (sollte nicht passieren).") #
-                
+
 # --- Main Logic ---
 if st.session_state.get('selected_team_id'):
     show_team_analysis_view()
