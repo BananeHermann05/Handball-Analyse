@@ -249,7 +249,7 @@ def show_clubs_list_view():
                     liga_name_ref = teams_in_agegroup.iloc[0].get("Liga_Name", "") if not teams_in_agegroup.empty else ""
                     
                     # Rufe die bereits existierende Übersetzungsfunktion auf
-                    altersgruppe_display = translate_age_group(liga_name=liga_name_ref, age_group_api=altersgruppe)
+                    altersgruppe_display = translate_age_group(league_name=liga_name_ref, age_group_api=altersgruppe)
                     # --- ANPASSUNG ENDE ---
 
                     st.markdown(f"**{altersgruppe_display}**") # Diese Zeile bleibt, nutzt aber jetzt den übersetzten Wert
