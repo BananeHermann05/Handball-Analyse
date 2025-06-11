@@ -9,7 +9,7 @@ from utils.cached_queries import (
     get_team_top_scorers_cached, get_team_penalty_leaders_cached,
     get_team_performance_halves_cached, get_team_head_to_head_with_stats_cached
 )
-from utils.ui import display_dataframe_with_title
+from utils.ui import display_dataframe_with_title, translate_age_group
 import db_queries_refactored as db_queries
 
 # --- Logging & Init ---
@@ -244,8 +244,16 @@ def show_clubs_list_view():
             teams_of_club_df = club_overview_df[club_overview_df['Vereinsname_Aggregiert'] == club_name] #
             if not teams_of_club_df.empty: #
                 for altersgruppe, teams_in_agegroup in teams_of_club_df.groupby(db_queries.COL_ALTERSGRUPPE, dropna=False): #
-                    altersgruppe_display = altersgruppe if pd.notna(altersgruppe) else 'Unbekannte Altersgruppe' #
-                    st.markdown(f"**{altersgruppe_display}**") #
+                    # --- ANPASSUNG START ---
+                    # Nimm den Liganamen des ersten Teams in der Gruppe als Referenz für m/w
+                    liga_name_ref = teams_in_agegroup.iloc[0].get("Liga_Name", "") if not teams_in_agegroup.empty else ""
+                    
+                    # Rufe die bereits existierende Übersetzungsfunktion auf
+                    altersgruppe_display = translate_age_group(liga_name=liga_name_ref, age_group_api=altersgruppe)
+                    # --- ANPASSUNG ENDE ---
+
+                    st.markdown(f"**{altersgruppe_display}**") # Diese Zeile bleibt, nutzt aber jetzt den übersetzten Wert
+
                     for index, team_row in teams_in_agegroup.sort_values(by="Team_Name").iterrows(): #
                         team_id = team_row[db_queries.COL_TEAM_ID] #
                         team_name_display = team_row["Team_Name"] #
