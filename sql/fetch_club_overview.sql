@@ -1,29 +1,30 @@
+WITH TeamLigaInfo AS (
+    SELECT 
+        v."Name" AS "Vereinsname_Aggregiert", -- HOLT DEN NAMEN AUS DER NEUEN VEREINE-TABELLE
+        t."Team_ID",
+        t."Name" AS "Team_Name",
+        l."Liga_ID",
+        l."Name" AS "Liga_Name",
+        l."Saison",
+        l."Altersgruppe",
+        -- Finde die aktuellste Liga-Zuweisung für jedes Team, basierend auf der Saison und der Startzeit des Spiels
+        ROW_NUMBER() OVER(PARTITION BY t."Team_ID" ORDER BY l."Saison" DESC, sp."Start_Zeit" DESC) as rn
+    FROM "Teams" t
+    -- Verknüpfe Teams mit den neuen, sauberen Vereinsdaten
+    JOIN "Vereine" v ON t."Verein_ID" = v."Verein_ID"
+    -- Finde die Spiele und Ligen, um die aktuellste Liga zu bestimmen
+    LEFT JOIN "Spiele" sp ON t."Team_ID" = sp."Heim_Team_ID" OR t."Team_ID" = sp."Gast_Team_ID"
+    LEFT JOIN "Ligen" l ON sp."Liga_ID" = l."Liga_ID"
+    WHERE l."Liga_ID" IS NOT NULL
+)
 SELECT 
-    v."Name" AS "Vereinsname_Aggregiert",
-    t."Team_ID",
-    t."Name" AS "Team_Name",
-    l."Liga_ID",
-    l."Name" AS "Liga_Name",
-    l."Saison",
-    l."Altersgruppe"
-FROM "Teams" t
-JOIN "Vereine" v ON t."Verein_ID" = v."Verein_ID"
--- Dieser JOIN ist komplexer, da die aktuellste Liga pro Team ermittelt werden muss.
--- Eine Möglichkeit ist ein Subquery oder eine Window-Funktion wie im Original.
--- Aber die Haupt-Gruppierungslogik ist weg.
-LEFT JOIN (
-    -- Finde die letzte Liga für jedes Team
-    SELECT 
-        sp."Heim_Team_ID" as team_id, 
-        sp."Liga_ID" as last_liga_id,
-        ROW_NUMBER() OVER(PARTITION BY sp."Heim_Team_ID" ORDER BY sp."Start_Zeit" DESC) as rn
-    FROM "Spiele" sp
-    UNION
-    SELECT 
-        sp."Gast_Team_ID" as team_id, 
-        sp."Liga_ID" as last_liga_id,
-        ROW_NUMBER() OVER(PARTITION BY sp."Gast_Team_ID" ORDER BY sp."Start_Zeit" DESC) as rn
-    FROM "Spiele" sp
-) last_league ON t."Team_ID" = last_league.team_id AND last_league.rn = 1
-LEFT JOIN "Ligen" l ON last_league.last_liga_id = l."Liga_ID"
-ORDER BY "Vereinsname_Aggregiert", l."Altersgruppe", "Team_Name";
+    "Vereinsname_Aggregiert",
+    "Team_ID",
+    "Team_Name",
+    "Liga_ID",
+    "Liga_Name",
+    "Saison",
+    "Altersgruppe"
+FROM TeamLigaInfo
+WHERE rn = 1 -- Wähle nur die aktuellste Zuordnung pro Team aus
+ORDER BY "Vereinsname_Aggregiert", "Altersgruppe", "Team_Name";
