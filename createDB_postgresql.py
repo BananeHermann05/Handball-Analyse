@@ -43,17 +43,17 @@ CREATE TABLE IF NOT EXISTS "Ligen" (
     "Liga_ID" TEXT PRIMARY KEY, "Name" TEXT NOT NULL, "Akronym" TEXT,
     "Saison" TEXT NOT NULL, "Altersgruppe" TEXT, "Typ" TEXT
 );
+CREATE TABLE IF NOT EXISTS "Vereine" (
+    "Verein_ID" SERIAL PRIMARY KEY,
+    "Name" TEXT NOT NULL UNIQUE,
+    "Manuell_Korrigiert" BOOLEAN DEFAULT FALSE
+);
 CREATE TABLE IF NOT EXISTS "Teams" (
     "Team_ID" TEXT PRIMARY KEY, 
     "Name" TEXT NOT NULL, 
     "Akronym" TEXT, 
     "Logo_URL" TEXT,
     "Verein_ID" INTEGER REFERENCES "Vereine"("Verein_ID") ON DELETE SET NULL -- NEUE SPALTE
-);
-CREATE TABLE IF NOT EXISTS "Vereine" (
-    "Verein_ID" SERIAL PRIMARY KEY,
-    "Name" TEXT NOT NULL UNIQUE,
-    "Manuell_Korrigiert" BOOLEAN DEFAULT FALSE
 );
 CREATE TABLE IF NOT EXISTS "Spieler" (
     "Spieler_ID" TEXT PRIMARY KEY, "Vorname" TEXT, "Nachname" TEXT,
