@@ -234,47 +234,37 @@ if st.button("Liga-Daten importieren", key="admin_add_league_btn_page"):
 
 
 st.markdown("---") # Trennlinie für die Übersichtlichkeit
+st.markdown("---") 
 
 # --- DATEN IMPORT (GANZER VEREIN) ---
 st.subheader("Ganzen Verein von URL importieren")
 club_url_input = st.text_input(
     "Vereins-URL:",
     key="admin_club_url_input_page",
-    placeholder="z.B. https://www.handball.net/mannschaften/..."
+    placeholder="z.B. https://www.handball.net/vereine/handball4all.westfalen.6386"
 )
 club_id_prefix_input = st.text_input(
     "ID-Präfix für den Verein:",
     key="admin_club_id_prefix_input_page",
-    value="handball4all.westfalen." # Beispiel-Präfix
+    value="handball4all.westfalen."
 )
 
-if st.button("Vereins-Daten importieren", key="admin_add_club_btn_page", type="primary"):
+if st.button("Vereins-Daten importieren & Spiele laden", key="admin_add_club_btn_page", type="primary"):
     if not club_url_input or not club_id_prefix_input:
         st.warning("Bitte eine Vereins-URL und den zugehörigen ID-Präfix eingeben.")
     elif main_batched is None:
         st.error("Importfunktion (main_batched) nicht verfügbar.")
     else:
-        try:
-            # Schritt 1: Alle Spiel-IDs mit der neuen Helfer-Funktion sammeln.
-            # Die Funktion gibt den Fortschritt direkt auf der Seite aus.
-            final_game_ids_list = get_all_game_ids_for_club(club_url_input, club_id_prefix_input)
-
-            if final_game_ids_list:
-                # Schritt 2: Den bekannten Batch-Prozess mit allen gesammelten IDs ausführen
-                with st.spinner(f"Importiere {len(final_game_ids_list)} Spiele... Dies kann einige Minuten dauern."):
-                    import_results = main_batched(final_game_ids_list, batch_size=batch_size_input)
-
-                if import_results:
-                    success_count = import_results.get("success", 0)
-                    error_count = import_results.get("error", 0)
-                    st.success(f"Vereins-Import abgeschlossen: {success_count} erfolgreich, {error_count} fehlerhaft.")
-                    if error_count > 0:
-                        st.warning(f"Bei {error_count} Spielen gab es Probleme. Details siehe Server-Log.")
-                else:
-                    st.error("Der Batch-Import hat keine Ergebnisse zurückgegeben.")
-
-                st.cache_data.clear()
-
-        except Exception as e_club_import:
-            st.error(f"Ein schwerwiegender Fehler ist beim Vereins-Import aufgetreten: {e_club_import}")
-            logger.error(f"Fehler bei Vereins-Import von URL {club_url_input}: {e_club_import}", exc_info=True)
+        # Der gesamte komplexe Prozess ist jetzt in einer Funktion gekapselt
+        final_game_ids_list = get_all_game_ids_for_club(club_url_input, club_id_prefix_input)
+        
+        if final_game_ids_list:
+            with st.spinner(f"Importiere {len(final_game_ids_list)} Spiele... Dies kann einige Minuten dauern."):
+                import_results = main_batched(final_game_ids_list, batch_size=batch_size_input)
+            
+            if import_results:
+                success_count = import_results.get("success", 0)
+                error_count = import_results.get("error", 0)
+                st.success(f"Vereins-Import abgeschlossen: {success_count} erfolgreich, {error_count} fehlerhaft.")
+            
+            st.cache_data.clear()
